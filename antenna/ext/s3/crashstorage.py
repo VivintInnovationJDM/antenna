@@ -113,19 +113,23 @@ class S3CrashStorage(CrashStorageBase):
             issues, bucket is missing, etc.
 
         """
+        # COMMENTED OUT AS IT DOES NOT SEEM HELPFUL FOR OUR PURPOSE
         # Save dump_names even if there are no dumps
-        self.conn.save_file(
-            self._get_dump_names_path(crash_id),
-            json_ordered_dumps(list(sorted(dumps.keys()))).encode('utf-8')
-        )
+        #self.conn.save_file(
+        #    self._get_dump_names_path(crash_id),
+        #    json_ordered_dumps(list(sorted(dumps.keys()))).encode('utf-8')
+        #)
 
         # Save dumps
         for dump_name, dump in dumps.items():
+            name = self._get_dump_name_path(crash_id, dump_name)
             self.conn.save_file(
                 self._get_dump_name_path(crash_id, dump_name),
                 dump
             )
 
+        return name #the name is need for sentry_breakpad_server to know what file to download from bucket    
+            
     def load_raw_crash(self, crash_id):
         """Loads and thaws out a raw crash
 
