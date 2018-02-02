@@ -9,6 +9,7 @@ import io
 import logging
 import time
 import zlib
+import sys
 
 from everett.component import ConfigOptions, RequiredConfigMixin
 from everett.manager import parse_class
@@ -16,6 +17,9 @@ import falcon
 from falcon.request_helpers import BoundedStream
 from gevent.pool import Pool
 import markus
+
+sys.path.append('/home/matthew.tung/sentry_breakpad_server/') #MAY NEED TO BE CHANGED WHEN PUT INTO PRODUCTION TO GET SCRIPTS
+from boto import bucket_manager
 
 from antenna.heartbeat import register_for_life, register_for_heartbeat
 from antenna.throttler import (
@@ -113,6 +117,7 @@ class BreakpadSubmitterResource(RequiredConfigMixin):
     )
 
     def __init__(self, config):
+        self.bucket = bucket_manager() #ADDED BY MT
         self.config = config.with_options(self)
         self.crashstorage = self.config('crashstorage_class')(config.with_namespace('crashstorage'))
         self.throttler = Throttler(config)
@@ -441,7 +446,10 @@ class BreakpadSubmitterResource(RequiredConfigMixin):
                 else:
                     logger.error('%s: too many errors trying to save; dropped', crash_report.crash_id)
                     mymetrics.incr('save_crash_dropped.count')
-
+            
+            #ADDED TO SEND TO sentry_breakpad_server
+            self.bucket.walk(self.name)
+            
     def crashmover_save(self, crash_report):
         """Saves a crash to storage
 
@@ -456,10 +464,11 @@ class BreakpadSubmitterResource(RequiredConfigMixin):
         # Capture total time it takes to save the crash
         with mymetrics.timer('crash_save.time'):
             # Save dumps to crashstorage
-            self.crashstorage.save_dumps(crash_id, dumps)
+            self.name = self.crashstorage.save_dumps(crash_id, dumps)
 
+            #COMMENTED OUT AS DOESN"T SEEM HELPFUL
             # Save the raw crash metadata to crashstorage
-            self.crashstorage.save_raw_crash(crash_id, raw_crash)
+            #self.crashstorage.save_raw_crash(crash_id, raw_crash)
 
         # Capture the total time it took for this crash to be handled from
         # being received from breakpad client to saving to s3.
